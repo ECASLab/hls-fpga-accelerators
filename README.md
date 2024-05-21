@@ -23,6 +23,19 @@ Possible adjustments through environment variables:
 
 The `xcu250-figd2104-2L-e` is an Alveo U250, whereas `xck26-sfvc784-2LV-c` is a Kria K26
 
+Function signature:
+
+```c
+void matmul(RawDataT *a, RawDataT *b, RawDataT *c, int a_rows, int b_cols, int c_cols)
+```
+
+* `a`: memory-mapped matrix A
+* `b`: memory-mapped matrix B (assumed transposed)
+* `c`: memory-mapped matrix C
+* `a_rows`: rows of matrix A
+* `b_cols`: columns of matrix A
+* `c_cols`: columns of matrix C
+
 ### Matrix/Vector Elementwise
 
 ```bash
@@ -41,6 +54,19 @@ Possible adjustments through environment variables:
 | PART               | xcu250-figd2104-2L-e, xck26-sfvc784-2LV-c | xcu250-figd2104-2L-e |
 
 The `xcu250-figd2104-2L-e` is an Alveo U250, whereas `xck26-sfvc784-2LV-c` is a Kria K26
+
+Function signature:
+
+```c
+void elementwise(RawDataT *in1, RawDataT *in2, RawDataT *out, uint64_t size,
+                 int op);
+```
+
+* `in1`: memory-mapped matrix A
+* `in2`: memory-mapped matrix B
+* `out`: memory-mapped matrix C
+* `size`: total number of elements of the matrix: cols * rows
+* `op`: 0: add, 1: multiply
 
 ### Unary
 
@@ -63,6 +89,17 @@ Possible adjustments through environment variables:
 The `xcu250-figd2104-2L-e` is an Alveo U250, whereas `xck26-sfvc784-2LV-c` is a Kria K26
 
 IMPLEXP: implementation of the exponential. STD: standard HLS library and LUT: approximate LUT interpolation
+
+Function signature:
+
+```c
+void unary(RawDataT *in, RawDataT *out, uint64_t size, int op);
+```
+
+* `in1`: memory-mapped matrix A
+* `out`: memory-mapped matrix C
+* `size`: total number of elements of the matrix: cols * rows
+* `op`: 0: none, 1: ReLU, 2: SILU
 
 ## Authors
 
