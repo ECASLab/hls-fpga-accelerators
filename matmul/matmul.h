@@ -8,6 +8,18 @@
 
 #include "../common/config.h"
 
+static constexpr int kARows = 2;
+#ifndef B_COLS
+static constexpr int kBCols = 32768;
+#else
+static constexpr int kBCols = B_COLS;
+#endif
+#ifndef C_COLS
+static constexpr int kCCols = 32768;
+#else
+static constexpr int kCCols = C_COLS;
+#endif
+
 extern "C" {
 void matmul(RawDataT *a, RawDataT *b, RawDataT *c, int a_rows, int b_cols, int c_cols);
 }

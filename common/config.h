@@ -11,18 +11,6 @@
 #include <ap_fixed.h>
 #include <hls_stream.h>
 
-// FIXME: Modify to adjust
-static constexpr int kARows = 2;
-#ifndef B_COLS
-static constexpr int kBCols = 32768;
-#else
-static constexpr int kBCols = B_COLS;
-#endif
-#ifndef C_COLS
-static constexpr int kCCols = 32768;
-#else
-static constexpr int kCCols = C_COLS;
-#endif
 #ifndef BUS
 static constexpr int kBusWidth = 512;
 #else
