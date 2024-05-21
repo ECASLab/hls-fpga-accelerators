@@ -19,6 +19,14 @@ if { [info exists ::env(BUS) ] } {
   set bus 512
 }
 
+# FPGA Part
+if { [info exists ::env(PART) ] } {
+  set part $::env(PART)
+} else {
+  set part "xcu250-figd2104-2L-e"
+}
+
+
 # B Columns
 if { [info exists ::env(B_COLS) ] } {
   set b_cols $::env(B_COLS)
@@ -38,7 +46,7 @@ set_top matmul
 # v++ -g, -D, -I, --advanced.prop kernel.matmul.kernel_flags
 add_files "./matmul.cpp" -cflags " -DUSE_$datatype -DBUS=$bus -DB_COLS=$b_cols -DC_COLS=$c_cols "
 open_solution -flow_target vitis solution
-set_part xck26-sfvc784-2LV-c
+set_part $part
 create_clock -period 300MHz -name default
 # v++ --advanced.param compiler.hlsDataflowStrictMode
 config_dataflow -strict_mode warning

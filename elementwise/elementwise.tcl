@@ -19,6 +19,14 @@ if { [info exists ::env(BUS) ] } {
   set bus 512
 }
 
+# FPGA Part
+if { [info exists ::env(PART) ] } {
+  set part $::env(PART)
+} else {
+  set part "xcu250-figd2104-2L-e"
+}
+
+
 # Matrix Cols
 if { [info exists ::env(COLS) ] } {
   set cols $::env(COLS)
@@ -38,7 +46,7 @@ set_top elementwise
 # v++ -g, -D, -I, --advanced.prop kernel.elementwise.kernel_flags
 add_files "./elementwise.cpp" -cflags " -DUSE_$datatype -DBUS=$bus -DM_COLS=$cols -DM_ROWS=$rows "
 open_solution -flow_target vitis solution
-set_part xck26-sfvc784-2LV-c
+set_part $part
 create_clock -period 300MHz -name default
 # v++ --advanced.param compiler.hlsDataflowStrictMode
 config_dataflow -strict_mode warning
