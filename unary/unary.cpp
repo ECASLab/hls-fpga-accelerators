@@ -79,9 +79,8 @@ execute:
         ExpDataType expx = explut(infx);
         ExpDataType denx = ExpDataType{1} + expx;
         ExpDataType invdenx = ExpDataType{1} / denx;
-        out.f = in1.f >= End::num || in1.f <= Start::num
-                    ? in1.f
-                    : decltype(in1.f)(infx * expx * invdenx);
+        out.f = in1.f >= End::num ? decltype(in1.f)(infx)
+                                  : decltype(in1.f)(infx * expx * invdenx);
 #else
         decltype(in1.f) expx = hls::exp(in1.f);
         decltype(in1.f) denx = 1.f + expx;
@@ -94,9 +93,7 @@ execute:
         ExpDataType expx = explut(infx);
         ExpDataType denx = ExpDataType{1} + expx;
         ExpDataType invdenx = ExpDataType{1} / denx;
-        out = in1 >= End::num || in1 <= Start::num
-                  ? in1
-                  : AccT{infx * expx * invdenx};
+        out = in1 >= End::num ? in1 : AccT{infx * expx * invdenx};
 #else
         AccT expx = hls::exp(in1);
         AccT denx = AccT{1} + expx;
@@ -147,7 +144,7 @@ extern "C" {
 
 void unary(RawDataT *in, RawDataT *out, uint64_t size, int op) {
 #pragma HLS INTERFACE m_axi port = in bundle = gmem0
-#pragma HLS INTERFACE m_axi port = out bundle = gmem2
+#pragma HLS INTERFACE m_axi port = out bundle = gmem1
 
   static StreamT in_stream("in_stream");
   static StreamT out_stream("out_stream");

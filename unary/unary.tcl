@@ -52,6 +52,7 @@ open_project unary
 set_top unary
 # v++ -g, -D, -I, --advanced.prop kernel.unary.kernel_flags
 add_files "./unary.cpp" -cflags " -I . -DUSE_$datatype -DBUS=$bus -DM_COLS=$cols -DM_ROWS=$rows -DUSE_$implexp "
+add_files -tb "./unary_tb.cc" -cflags " -I . -DUSE_$datatype -DBUS=$bus -DM_COLS=$cols -DM_ROWS=$rows -DUSE_$implexp "
 open_solution -flow_target vitis solution
 set_part $part
 create_clock -period 300MHz -name default
@@ -65,6 +66,7 @@ config_interface -m_axi_addr64
 # v++ --hls.max_memory_ports
 config_interface -m_axi_auto_max_ports=0
 config_export -format xo -ipname unary
+#csim_design -clean 
 csynth_design
 close_project
 puts "HLS completed successfully"
