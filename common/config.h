@@ -61,4 +61,12 @@ using AccT = d16;
 using AccT = DataT;
 #endif
 
+#ifdef USE_UNION
+#define GET_NUMBER(n) (n).f
+#define GET_RAW(n) (n).i
+#else
+#define GET_NUMBER(n) (n)
+#define GET_RAW(n) (n).V
+#endif
+
 #endif // __CONFIG_H__
