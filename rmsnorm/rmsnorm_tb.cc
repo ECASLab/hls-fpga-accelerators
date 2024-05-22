@@ -3,7 +3,7 @@
  * Author: Luis G. Leon-Vega <luis.leon@ieee.org>
  */
 
-#include "unary.h"
+#include "rmsnorm.h"
 
 #define BW kDataWidth
 
@@ -31,7 +31,7 @@ int main(int, char **) {
     std::cout << std::endl;
   }
 
-  unary(a, c, rows * cols, 2);
+  rmsnorm(a, c, rows * cols);
 
   std::cout << "C: " << std::endl;
   for (int elem = 0; elem < size_a; ++elem) {
