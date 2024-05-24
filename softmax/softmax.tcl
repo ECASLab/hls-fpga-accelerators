@@ -9,7 +9,7 @@ catch {::common::set_param -quiet hls.xocc.mode csynth};
 if { [info exists ::env(DATATYPE) ] } {
   set datatype $::env(DATATYPE)
 } else {
-  set datatype "FIXED16"
+  set datatype "FLOAT16"
 }
 
 # Bus default
@@ -41,11 +41,11 @@ if { [info exists ::env(ROWS) ] } {
   set rows 4096
 }
 
-open_project rmsnorm
-set_top rmsnorm
-# v++ -g, -D, -I, --advanced.prop kernel.rmsnorm.kernel_flags
-add_files "./rmsnorm.cpp" -cflags " -DUSE_$datatype -DBUS=$bus -DM_COLS=$cols -DM_ROWS=$rows "
-add_files -tb "./rmsnorm_tb.cc" -cflags " -I . -DUSE_$datatype -DBUS=$bus -DM_COLS=$cols -DM_ROWS=$rows "
+open_project softmax
+set_top softmax
+# v++ -g, -D, -I, --advanced.prop kernel.softmax.kernel_flags
+add_files "./softmax.cpp" -cflags " -DUSE_$datatype -DBUS=$bus -DM_COLS=$cols -DM_ROWS=$rows "
+add_files -tb "./softmax_tb.cc" -cflags " -I . -DUSE_$datatype -DBUS=$bus -DM_COLS=$cols -DM_ROWS=$rows "
 open_solution -flow_target vitis solution
 set_part $part
 create_clock -period 300MHz -name default
@@ -58,7 +58,7 @@ config_interface -m_axi_conservative_mode=1
 config_interface -m_axi_addr64
 # v++ --hls.max_memory_ports
 config_interface -m_axi_auto_max_ports=0
-config_export -format xo -ipname rmsnorm
+config_export -format xo -ipname softmax
 #csim_design -clean 
 csynth_design
 close_project
