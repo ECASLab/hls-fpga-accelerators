@@ -41,10 +41,17 @@ if { [info exists ::env(C_COLS) ] } {
   set c_cols 4096
 }
 
+# A rows
+if { [info exists ::env(A_ROWS) ] } {
+  set a_rows $::env(A_ROWS)
+} else {
+  set a_rows 2
+}
+
 open_project matmul
 set_top matmul
 # v++ -g, -D, -I, --advanced.prop kernel.matmul.kernel_flags
-add_files "./matmul.cpp" -cflags " -DUSE_$datatype -DBUS=$bus -DB_COLS=$b_cols -DC_COLS=$c_cols "
+add_files "./matmul.cpp" -cflags " -DUSE_$datatype -DBUS=$bus -DA_ROWS=$a_rows -DB_COLS=$b_cols -DC_COLS=$c_cols "
 open_solution -flow_target vitis solution
 set_part $part
 create_clock -period 300MHz -name default
