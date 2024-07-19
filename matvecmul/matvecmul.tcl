@@ -8,6 +8,7 @@ catch {::common::set_param -quiet hls.xocc.mode csynth};
 # Datatype default
 if { [info exists ::env(DATATYPE) ] } {
   set datatype $::env(DATATYPE)
+  set dwidth 16
 } else {
   set datatype "FLOAT16"
   set dwidth 16
@@ -39,7 +40,7 @@ if { [info exists ::env(B_COLS) ] } {
 if { [info exists ::env(C_COLS) ] } {
   set c_cols $::env(C_COLS)
 } else {
-  set c_cols 4096
+  set c_cols 1
 }
 
 # A rows
