@@ -52,12 +52,14 @@ typedef union {
   float f;
 } d32;
 using AccT = d32;
+using DataT = float;
 #elif defined(USE_FLOAT16) || defined(USE_FLOAT8) || defined(USE_FLOAT4)
 #define USE_UNION
 typedef union {
   uint16_t i;
   half f;
 } d16;
+using DataT = half;
 using AccT = d16;
 #else
 using AccT = DataT;
