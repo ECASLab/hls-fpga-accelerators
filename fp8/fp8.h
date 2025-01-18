@@ -99,8 +99,6 @@ inline minifloat::minifloat(const float val) noexcept {
   this->sign_ = raw(31, 31);
   this->exponent_ = exponent(3, 0);
   this->mantissa_ = mantissa(22, 20);
-
-  std::cout << "m: " << this->mantissa_ << " e: " << this->exponent_ << " s: " << this->sign_ << std::endl;
 }
 
 inline float minifloat::convertfloat() const noexcept {
@@ -141,44 +139,56 @@ inline minifloat minifloat::addition(const minifloat &a, const minifloat &b) con
   /* Difference between exponents */
   ap_uint<4> diff_e = e1 - e2;
 
-  std::cout << "N1 m: " << a_.mantissa_ << " e: " << a_.exponent_ << " s: " << a_.sign_ << std::endl;
-  std::cout << "N2 m: " << b_.mantissa_ << " e: " << b_.exponent_ << " s: " << b_.sign_ << std::endl;
-
   /* Set the (1 + mf): 3 frac for mantissa, 16 bits for integer part */
   ap_fixed<16 + 3, 16> operand_a{1}, operand_b{1}, operand_c{0};
   operand_a.V(2, 0) = m1;
   operand_b.V(2, 0) = m2;
   operand_a <<= diff_e;
 
-  std::cout << "Diff: " << diff_e << std::endl;
-  std::cout << "Operand A: " << operand_a << std::endl;
-  std::cout << "Operand B: " << operand_b << std::endl;
-
   /* Compute the number of integer bits */
   operand_c = operand_a + (sign ?  decltype(operand_b){-operand_b} : decltype(operand_b){operand_b});
   ap_uint<4> ilog2_c = hls::ilogb(operand_c);
 
-  std::cout << "Operand C: " << operand_c << std::endl;
-  std::cout << "ilog C: " << ilog2_c << std::endl;
-
   /* Get normalised mantissa */
   ap_fixed<16 + 3, 16> operand_c_norm = operand_c >> ilog2_c;
-  std::cout << "Operand C Norm: " << operand_c_norm << std::endl;
 
   /* Get resulting components */
   res.mantissa_ = operand_c_norm(2, 0);
   res.exponent_ = ilog2_c + b_.exponent_;
 
-  // TODO(lleon): check accordingly
   res.sign_ = sign ? a_.sign_ : sign;
-
-  std::cout << "Res m: " << res.mantissa_ << " e: " << res.exponent_ << " s: " << res.sign_ << std::endl;
 
   return res;
 }
 
 inline minifloat minifloat::multiplication(const minifloat &a, const minifloat &b) const noexcept {
-  return minifloat{0.f};
+  minifloat res;
+  /* The sign is the XOR */
+  res.sign_ = a.sign_ ^ b.sign_;
+
+  /* The exponent is the sum of both: 7 due to double replication */
+  res.exponent_ = a.exponent_ + b.exponent_ - 7;
+
+  /* The mantissa depends: 1 + (m1 + m2)/8 + m1m2/64. 
+     Requires two bits int and twice the resolution */
+  ap_ufixed<1 + 3, 1> ma_{0}, mb_{0}, mres_{0};
+  ma_.V(2, 0) = a.mantissa_;
+  mb_.V(2, 0) = b.mantissa_;
+
+  ap_ufixed<6 + 2, 2> ma_ext_{0}, mb_ext_{0}, resm_ext_{1};
+  ma_ext_ = ma_;
+  mb_ext_ = mb_;
+
+  /* Can it be approximate? */
+  resm_ext_ += (ma_ext_ + mb_ext_) + (ma_ext_ * mb_ext_); 
+  if (resm_ext_ > ap_ufixed<6 + 2, 2>{2}) {
+    resm_ext_ >>= 1;
+    res.exponent_++;
+  }
+  mres_ = resm_ext_;
+  res.mantissa_ = mres_(2, 0);
+
+  return res;
 }
 
 
