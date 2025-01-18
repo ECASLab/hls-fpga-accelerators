@@ -21,6 +21,13 @@ class minifloat {
   /* Cast from float */
   explicit minifloat(const float val) noexcept;
 
+  /* Copy */
+  void operator=(const minifloat &m) {
+    this->mantissa_ = m.mantissa_;
+    this->exponent_ = m.exponent_;
+    this->sign_ = m.sign_;
+  }
+
   /* Cast to float */
   operator const float() const { return convertfloat(); }
 
@@ -46,16 +53,25 @@ inline minifloat::minifloat(const float val) noexcept {
 
   element.val = val;
   ap_uint<32> raw = element.raw;
-  ap_uint<8> exponent = static_cast<uint8_t>(raw(30, 23)) - this->kExpOffset;
+  ap_uint<23> mantissa = raw(22, 0);
+  ap_uint<8> exponent = static_cast<uint8_t>(raw(30, 23));
+
+  /* Handle corner cases: inf */
+  if (mantissa == 0x00 && exponent == 0xFF) {
+    this->exponent_ = 0xF;
+  } else if (exponent > 134) {
+    exponent = 134;
+    mantissa = -1;
+  } else if (exponent < 121) {
+    exponent = 120;
+    mantissa = 0x000;
+  }
+
+  exponent -= this->kExpOffset;
 
   this->sign_ = raw(31, 31);
   this->exponent_ = exponent(3, 0);
-  this->mantissa_ = raw(22, 20);
-  
-
-  std::cout << "e: " << (uint32_t)this->exponent_
-            << " m: " << (uint32_t)this->mantissa_
-            << " s: " << (uint32_t)this->sign_ << std::endl;
+  this->mantissa_ = mantissa(22, 20);
 }
 
 inline float minifloat::convertfloat() const noexcept {
@@ -64,7 +80,9 @@ inline float minifloat::convertfloat() const noexcept {
     float val;
   } element;
 
-  ap_uint<8> exponent = static_cast<uint8_t>(this->exponent_) + this->kExpOffset;
+  ap_uint<8> exponent = this->exponent_ == ap_uint<4>{0xF} ?  
+      ap_uint<8>{0xFF} : this->exponent_ == ap_uint<4>{0x0} ?
+      ap_uint<8>{0x0} : ap_uint<8>{static_cast<uint8_t>(this->exponent_) + this->kExpOffset};
 
   ap_uint<32> raw = 0;
   raw(31, 31) = this->sign_;
@@ -72,10 +90,6 @@ inline float minifloat::convertfloat() const noexcept {
   raw(22, 20) = this->mantissa_;
 
   element.raw = raw;
-
-  std::cout << "e: " << (uint32_t)this->exponent_
-            << " m: " << (uint32_t)this->mantissa_
-            << " s: " << (uint32_t)this->sign_ << std::endl;
   return element.val;
 }
 
