@@ -78,5 +78,21 @@ int main() {
   val = minifloat{7.5f} * minifloat{24.f};
   std::cout << "Original: " << minifloat{180.f} << std::endl
             << "Minifloat: " << val << std::endl << std::endl;
+  
+  val = minifloat{20.f} * minifloat{65.f};
+  std::cout << "Original* over: " << minifloat{1300.f} << std::endl
+            << "Minifloat: " << val << std::endl << std::endl;
+  
+  val = minifloat{0.015625f} * minifloat{0.005859375f};
+  std::cout << "Original* sub: " << minifloat{9.1552734375e-05} << std::endl
+            << "Minifloat: " << val << std::endl << std::endl;
+  
+  val = minifloat{128.f} * minifloat{150.f};
+  std::cout << "Original+ over: " << minifloat{278.f} << std::endl
+            << "Minifloat: " << val << std::endl << std::endl;
+  
+  val = minifloat{0.00390625} + minifloat{-0.005859375f};
+  std::cout << "Original+ sub: " << minifloat{-0.001953125} << std::endl
+            << "Minifloat: " << val << std::endl << std::endl;
   return 0;
 }

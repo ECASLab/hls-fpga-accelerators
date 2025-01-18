@@ -182,7 +182,17 @@ inline minifloat minifloat::multiplication(const minifloat &a, const minifloat &
   if (a.iszero() || b.iszero()) return minifloat{0.f};
 
   /* The exponent is the sum of both: 7 due to double replication */
-  res.exponent_ = a.exponent_ + b.exponent_ - 7;
+  ap_int<6> exp = a.exponent_ + b.exponent_ - 7;
+  if (exp > 14) {
+    res.exponent_ = 14;
+    res.mantissa_ = 7;
+    return res;
+  } else if (exp < 0) {
+    res.exponent_ = 0;
+    res.mantissa_ = 0;
+    return res;
+  }
+  res.exponent_ = exp;
 
   /* The mantissa depends: 1 + (m1 + m2)/8 + m1m2/64. 
      Requires two bits int and twice the resolution */
