@@ -9,5 +9,6 @@
 
 void fp8_dut(const float inval, float &outval) {
   minifloat val{inval};
+  val = val * minifloat{2.f} + minifloat{16.f};
   outval = static_cast<float>(val);
 }

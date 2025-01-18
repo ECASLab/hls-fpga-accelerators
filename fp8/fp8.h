@@ -68,6 +68,7 @@ class minifloat {
   float convertfloat() const noexcept;
   minifloat addition(const minifloat &a, const minifloat &b) const noexcept;
   minifloat multiplication(const minifloat &a, const minifloat &b) const noexcept;
+  bool iszero() const noexcept;
 
   const uint8_t kExpOffset = 120; // 127 (32 bits) - 7 (8 bits)
 };
@@ -120,8 +121,17 @@ inline float minifloat::convertfloat() const noexcept {
   return element.val;
 }
 
+inline bool minifloat::iszero() const noexcept {
+  return mantissa_ == 0 && exponent_ == 0;
+}
+
 inline minifloat minifloat::addition(const minifloat &a, const minifloat &b) const noexcept {
+#pragma HLS inline off
   minifloat res, a_, b_;
+
+  /* Return in case of zero */
+  if (a.iszero()) return b;
+  if (b.iszero()) return a;
   
   /* Swap flag: in case the second operand is bigger */
   ap_uint<1> swap = a.exponent_ < b.exponent_ ?  ap_uint<1>{1} : ap_uint<1>{0};
@@ -141,13 +151,14 @@ inline minifloat minifloat::addition(const minifloat &a, const minifloat &b) con
 
   /* Set the (1 + mf): 3 frac for mantissa, 16 bits for integer part */
   ap_fixed<16 + 3, 16> operand_a{1}, operand_b{1}, operand_c{0};
-  operand_a.V(2, 0) = m1;
-  operand_b.V(2, 0) = m2;
+  operand_a(2, 0) = m1;
+  operand_b(2, 0) = m2;
   operand_a <<= diff_e;
 
   /* Compute the number of integer bits */
   operand_c = operand_a + (sign ?  decltype(operand_b){-operand_b} : decltype(operand_b){operand_b});
-  ap_uint<4> ilog2_c = hls::ilogb(operand_c);
+  //ap_uint<4> ilog2_c = hls::ilogb(operand_c);
+  ap_uint<4> ilog2_c = 15 - operand_c.countLeadingZeros(); // 15 = I - 1
 
   /* Get normalised mantissa */
   ap_fixed<16 + 3, 16> operand_c_norm = operand_c >> ilog2_c;
@@ -162,9 +173,13 @@ inline minifloat minifloat::addition(const minifloat &a, const minifloat &b) con
 }
 
 inline minifloat minifloat::multiplication(const minifloat &a, const minifloat &b) const noexcept {
+#pragma HLS inline off
   minifloat res;
   /* The sign is the XOR */
   res.sign_ = a.sign_ ^ b.sign_;
+
+  /* Check any possible zero */
+  if (a.iszero() || b.iszero()) return minifloat{0.f};
 
   /* The exponent is the sum of both: 7 due to double replication */
   res.exponent_ = a.exponent_ + b.exponent_ - 7;
@@ -172,8 +187,8 @@ inline minifloat minifloat::multiplication(const minifloat &a, const minifloat &
   /* The mantissa depends: 1 + (m1 + m2)/8 + m1m2/64. 
      Requires two bits int and twice the resolution */
   ap_ufixed<1 + 3, 1> ma_{0}, mb_{0}, mres_{0};
-  ma_.V(2, 0) = a.mantissa_;
-  mb_.V(2, 0) = b.mantissa_;
+  ma_(2, 0) = a.mantissa_;
+  mb_(2, 0) = b.mantissa_;
 
   ap_ufixed<6 + 2, 2> ma_ext_{0}, mb_ext_{0}, resm_ext_{1};
   ma_ext_ = ma_;
