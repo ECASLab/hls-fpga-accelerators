@@ -2,15 +2,17 @@
 
 static void load_input(RawDataT *in, hls::stream<RawDataT> &inStream,
                        uint64_t size) {
+#pragma HLS INLINE off
   const uint64_t size_raw = size / kPackets;
 mem_reps:
   for (int i = 0; i < 2; ++i) {
   mem_rd:
     for (uint64_t i = 0; i < size_raw; ++i) {
 #pragma HLS PIPELINE
-//#pragma HLS LOOP_TRIPCOUNT min = kTotalMaxSize max = kTotalMaxSize avg = \
+#pragma HLS LOOP_TRIPCOUNT min = kTotalMaxSize max = kTotalMaxSize avg = \
     kTotalMaxSize
       inStream << in[i];
+      
     }
   }
 }
@@ -18,7 +20,7 @@ mem_reps:
 static void compute(hls::stream<RawDataT> &in_stream,
                           hls::stream<RawDataT> &out_stream, uint64_t size) {
 #pragma HLS INLINE off
-  constexpr int kNumPoints = 64;
+  constexpr int kNumPoints = 4;
 
   using Start = std::ratio<START_APROX>;
   using End = std::ratio<END_APROX>;
@@ -27,27 +29,29 @@ static void compute(hls::stream<RawDataT> &in_stream,
       ExpOpLut explut{};
 
   AccT sum = {0};
-  AccT scale = {0.0f};
+  AccT scale = {0};
 
 // Cumsum
 cumsum_out:
   for (int i = 0; i < size; i += kPackets) {
 #pragma HLS PIPELINE
-//#pragma HLS LOOP_TRIPCOUNT min = kTotalMaxSize max = kTotalMaxSize avg = \
+#pragma HLS LOOP_TRIPCOUNT min = kTotalMaxSize max = kTotalMaxSize avg = \
     kTotalMaxSize
     AccT local_cum = {0};
-    AccT local_exps[kPackets] = {0};
+    DataT local_exps[kPackets] = {0};
     RawDataT raw_in1 = in_stream.read();
 
   compute_exps:
     for (int p = 0; p < kPackets; ++p) {
+#pragma HLS UNROLL
       // offsets
       const int offlow = p * kDataWidth;
       const int offhigh = offlow + kDataWidth - 1;
 
       // Extract the input
-      AccT num = {0};
-      GET_RAW(num) = raw_in1(offhigh, offlow);
+      DataT num = {0};
+      num.range(kDataWidth - 1, 0) = raw_in1.range(offhigh, offlow);
+
       GET_NUMBER(local_exps[p]) = explut(GET_NUMBER(num));
     }  // compute_Exps
 
@@ -55,6 +59,7 @@ cumsum_out:
   cumsum_in:
     for (int p = 0; p < kPackets; ++p) {
       // Accumulate the exponentials
+      
       GET_NUMBER(local_cum) += GET_NUMBER(local_exps[p]);
 
     }  // cumsum_in
@@ -62,12 +67,12 @@ cumsum_out:
   }  // cumsum_out
 
   // compute scale
-  GET_NUMBER(scale) = 1.0f / static_cast<float>(GET_NUMBER(sum));
+  GET_NUMBER(scale) = static_cast<float>(1.0f) / static_cast<float>(GET_NUMBER(sum));
 
 prod_out:
   for (uint64_t elem = 0; elem < size; elem += kPackets) {
 #pragma HLS PIPELINE
-//#pragma HLS LOOP_TRIPCOUNT min = kTotalMaxSize max = kTotalMaxSize avg = \
+#pragma HLS LOOP_TRIPCOUNT min = kTotalMaxSize max = kTotalMaxSize avg = \
     kTotalMaxSize
     RawDataT raw_in2 = in_stream.read();
     RawDataT raw_out = 0;
@@ -77,16 +82,13 @@ prod_out:
       // Offsets
       const int offlow = p * kDataWidth;
       const int offhigh = offlow + kDataWidth - 1;
-      AccT num = {0};
+      DataT num = {0};
 
       // Get the number
-      GET_RAW(num) = raw_in2(offhigh, offlow);
+      num.range(kDataWidth - 1, 0) = raw_in2.range(offhigh, offlow);
 
-      // Scale
-      GET_NUMBER(num) = explut(GET_NUMBER(num)) * DataT(GET_NUMBER(scale));
-
-      // Store
-      raw_out(offhigh, offlow) = GET_RAW(num);
+      GET_NUMBER(num) = explut(GET_NUMBER(num)) * GET_NUMBER(scale);
+      raw_out.range(offhigh, offlow) = num.range(kDataWidth - 1, 0);
     }
     out_stream << raw_out;
   }
@@ -94,6 +96,7 @@ prod_out:
 
 static void store_result(RawDataT *out, hls::stream<RawDataT> &out_stream,
                          uint64_t size) {
+#pragma HLS INLINE off
   const uint64_t size_raw = size / kPackets;
 mem_wr:
   for (uint64_t i = 0; i < size_raw; ++i) {

@@ -114,8 +114,8 @@
   * c: output (samples, outputs)
   */
  void softmax(RawDataT *in1, RawDataT *out, uint64_t size) {
- #pragma HLS INTERFACE m_axi offset = slave port = in1 bundle = gmem0
- #pragma HLS INTERFACE m_axi offset = slave port = out bundle = gmem1
+ #pragma HLS INTERFACE m_axi offset = slave port = in1 bundle = gmem0 depth = 32
+ #pragma HLS INTERFACE m_axi offset = slave port = out bundle = gmem1 depth = 32
  #pragma HLS INTERFACE s_axilite register port = size
  #pragma HLS INTERFACE s_axilite register port = return
  

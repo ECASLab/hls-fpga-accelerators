@@ -59,8 +59,9 @@ config_interface -m_axi_addr64
 # v++ --hls.max_memory_ports
 config_interface -m_axi_auto_max_ports=0
 config_export -format xo -ipname softmax
-csim_design -clean 
-#csynth_design
+#csim_design -clean 
+csynth_design
+cosim_design
 close_project
 puts "HLS completed successfully"
 exit

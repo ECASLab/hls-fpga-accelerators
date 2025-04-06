@@ -9,7 +9,7 @@ catch {::common::set_param -quiet hls.xocc.mode csynth};
 if { [info exists ::env(DATATYPE) ] } {
   set datatype $::env(DATATYPE)
 } else {
-  set datatype "FLOAT32"
+  set datatype "USE_FIXED20"
 }
 
 # Bus default
@@ -44,11 +44,11 @@ if { [info exists ::env(ROWS) ] } {
 open_project softmax_lut
 set_top softmax_lut
 # v++ -g, -D, -I, --advanced.prop kernel.softmax_lut.kernel_flags
-add_files "./softmax_lut.cpp" -cflags " -DUSE_$datatype -DBUS=$bus -DM_COLS=$cols -DM_ROWS=$rows "
-add_files -tb "./softmax_lut_tb.cc" -cflags " -I . -DUSE_$datatype -DBUS=$bus -DM_COLS=$cols -DM_ROWS=$rows "
+add_files "./softmax_lut.cpp" -cflags " -DALLOW_EMPTY_HLS_STREAM_READS -DUSE_$datatype -DBUS=$bus -DM_COLS=$cols -DM_ROWS=$rows "
+add_files -tb "./softmax_lut_tb.cc" -cflags " -I . -DUSE_$datatype -DBUS=$bus -DM_COLS=$cols -DM_ROWS=$rows -DALLOW_EMPTY_HLS_STREAM_READS"
 open_solution -flow_target vitis solution
 set_part $part
-create_clock -period 300MHz -name default
+create_clock -period 200MHz -name default
 # v++ --advanced.param compiler.hlsDataflowStrictMode
 config_dataflow -strict_mode warning
 # v++ --advanced.param compiler.deadlockDetection
@@ -58,8 +58,8 @@ config_interface -m_axi_conservative_mode=1
 config_interface -m_axi_addr64
 # v++ --hls.max_memory_ports
 config_interface -m_axi_auto_max_ports=0
-config_export -format xo -ipname softmax
-csim_design -clean 
+config_export -format xo -ipname softmax_lut
+#csim_design -clean 
 csynth_design
 cosim_design
 close_project
