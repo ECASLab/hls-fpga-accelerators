@@ -19,13 +19,13 @@ mem_reps:
 static void compute_aprox(hls::stream<RawDataT> &in_stream,
                           hls::stream<RawDataT> &out_stream, uint64_t size) {
 #pragma HLS INLINE off
-  constexpr int korder = 3;
+  
   using ExpOpTaylor =
       axc::nonlinear::approximate::taylor::Exponential<DataT,
-                                                       korder>;
+                                                       korder,is_fp>;
   ExpOpTaylor exptaylor{};
 
-  AccT sum = {0};
+  DataT sum = {0};
   AccT scale = {0.0f};
 
 // Cumsum
@@ -34,8 +34,8 @@ cumsum_out:
 #pragma HLS PIPELINE
 #pragma HLS LOOP_TRIPCOUNT min = kTotalMaxSize max = kTotalMaxSize avg = \
     kTotalMaxSize
-    AccT local_cum = {0};
-    AccT local_exps[kPackets] = {0};
+    DataT local_cum = {0};
+    DataT local_exps[kPackets] = {0};
     RawDataT raw_in1 = in_stream.read();
 
   compute_exps:
@@ -44,24 +44,27 @@ cumsum_out:
       const int offlow = p * kDataWidth;
       const int offhigh = offlow + kDataWidth - 1;
 
+      ap_uint<kDataWidth> raw_bits = raw_in1.range(offhigh, offlow);
       // Extract the input
-      AccT num = {0};
-      GET_RAW(num) = raw_in1(offhigh, offlow);
-      GET_NUMBER(local_exps[p]) = exptaylor(GET_NUMBER(num));
+      DataT num = GET_NUMBER<DataT>(raw_bits);
+
+      local_exps[p] = exptaylor(num);
     }  // compute_Exps
 
   // compute cumsum
   cumsum_in:
     for (int p = 0; p < kPackets; ++p) {
-      // Accumulate the exponentials
-      GET_NUMBER(local_cum) += GET_NUMBER(local_exps[p]);
+      // Accumulate exponentials
+      local_cum = local_cum + local_exps[p];
 
     }  // cumsum_in
-    GET_NUMBER(sum) += GET_NUMBER(local_cum);
+    sum = sum + local_cum;
   }  // cumsum_out
 
   // compute scale
-  GET_NUMBER(scale) = 1.0f / static_cast<float>(GET_NUMBER(sum));
+  scale = 1.0 / toFloat(sum);
+  
+
 
 prod_out:
   for (uint64_t elem = 0; elem < size; elem += kPackets) {
@@ -76,17 +79,19 @@ prod_out:
       // Offsets
       const int offlow = p * kDataWidth;
       const int offhigh = offlow + kDataWidth - 1;
-      AccT num = {0};
+      ap_uint<kDataWidth> raw_bits = raw_in2.range(offhigh, offlow);
 
-      // Get the number
-      GET_RAW(num) = raw_in2(offhigh, offlow);
+      DataT num = GET_NUMBER<DataT>(raw_bits);
+
 
       // Scale
-      GET_NUMBER(num) =
-          exptaylor(GET_NUMBER(num)) * DataT(GET_NUMBER(scale));
+      num =
+          exptaylor(num) * DataT(scale);
 
+    
       // Store
-      raw_out(offhigh, offlow) = GET_RAW(num);
+      raw_out.range(offhigh, offlow) = GET_RAW(num);
+
     }
     out_stream << raw_out;
   }
@@ -107,8 +112,8 @@ mem_wr:
 extern "C" {
 
 void softmax_taylor(RawDataT *in1, RawDataT *out, uint64_t size) {
-#pragma HLS INTERFACE m_axi offset = slave port = in1 bundle = gmem0 depth = 32
-#pragma HLS INTERFACE m_axi offset = slave port = out bundle = gmem1 depth = 32
+#pragma HLS INTERFACE m_axi offset = slave port = in1 bundle = gmem0 depth = kTotalMaxSize
+#pragma HLS INTERFACE m_axi offset = slave port = out bundle = gmem1 depth = kTotalMaxSize
 #pragma HLS INTERFACE s_axilite register port = size
 #pragma HLS INTERFACE s_axilite register port = return
 

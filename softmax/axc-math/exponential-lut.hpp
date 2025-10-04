@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include <cmath>
 #include <ratio>
 
 #include "interpolation-wrapper.hpp"
@@ -25,7 +24,7 @@ namespace generator {
  * @tparam S size of the LUT array. It defaults to 64 elements from BEGIN to
  * END
  */
-template <typename T, class BEGIN, class END, int S = 64>
+template <typename T, class BEGIN, class END, int S = 64, bool is_fp = false>
 class Exponential {
  public:
   /**
@@ -62,8 +61,8 @@ class Exponential {
   explicit Exponential(T lut[S]);
 };
 
-template <typename T, class BEGIN, class END, int S>
-Exponential<T, BEGIN, END, S>::Exponential(T lut[S]) {
+template <typename T, class BEGIN, class END, int S, bool is_fp>
+Exponential<T, BEGIN, END, S, is_fp>::Exponential(T lut[S]) {
   for (int i = 0; i < Points; ++i) {
     float x = Minimum + i * Step;
     lut[i] = T{std::exp(x)};
@@ -81,7 +80,7 @@ Exponential<T, BEGIN, END, S>::Exponential(T lut[S]) {
  * @tparam S size of the LUT array. It defaults to 64 elements from BEGIN to
  * END
  */
-template <typename T, class BEGIN, class END, int S = 64>
+template <typename T, class BEGIN, class END, int S = 64, bool is_fp = false>
 class Exponential {
  public:
   /**
@@ -118,10 +117,10 @@ class Exponential {
   /**
    * @brief LUT factory
    */
-  typedef generator::Exponential<T, BEGIN, END, S> Generator;
+  typedef generator::Exponential<T, BEGIN, END, S, is_fp> Generator;
 
  private:
-  ::axc::nonlinear::approximate::helpers::LinearInterpolation<T, Generator>
+  ::axc::nonlinear::approximate::helpers::LinearInterpolation<T, Generator, is_fp>
       interpolator_;
 };
 
