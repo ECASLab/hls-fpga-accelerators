@@ -25,7 +25,7 @@ static void compute(hls::stream<RawDataT> &in_stream,
   using Start = std::ratio<START_APROX>;
   using End = std::ratio<END_APROX>;
   using ExpOpLut =
-      axc::nonlinear::approximate::lut::Exponential<DataT, Start, End, kNumPoints>;
+      axc::nonlinear::approximate::lut::Exponential<DataT, Start, End, kNumPoints, IS_FP>;
       ExpOpLut explut{};
 
   AccT sum = {0};
@@ -37,7 +37,7 @@ cumsum_out:
 #pragma HLS PIPELINE
 #pragma HLS LOOP_TRIPCOUNT min = kTotalMaxSize max = kTotalMaxSize avg = \
     kTotalMaxSize
-    AccT local_cum = {0};
+    AccT local_cum = {0.0f};
     DataT local_exps[kPackets] = {0};
     RawDataT raw_in1 = in_stream.read();
 
@@ -48,26 +48,44 @@ cumsum_out:
       const int offlow = p * kDataWidth;
       const int offhigh = offlow + kDataWidth - 1;
 
+      ap_uint<kDataWidth> raw_bits = raw_in1.range(offhigh, offlow);
       // Extract the input
-      DataT num = {0};
-      num.range(kDataWidth - 1, 0) = raw_in1.range(offhigh, offlow);
+      DataT num = GET_NUMBER<DataT>(raw_bits);
 
-      GET_NUMBER(local_exps[p]) = explut(GET_NUMBER(num));
+      local_exps[p] = explut(num);
+ 
+
     }  // compute_Exps
 
   // compute cumsum
   cumsum_in:
     for (int p = 0; p < kPackets; ++p) {
-      // Accumulate the exponentials
-      
-      GET_NUMBER(local_cum) += GET_NUMBER(local_exps[p]);
+#pragma HLS UNROLL
+      // Accumulate exponentials
+      #if USE_RECIPROCAL == 1
+            //local_cum = local_cum + toFloat(local_exps[p]); // revisar el toFloat
+            local_cum = local_cum + local_exps[p]; // revisar el toFloat
+
+      #else
+            local_cum = local_cum + toFloat(local_exps[p]);
+            //local_cum = local_cum + local_exps[p]; // revisar el toFloat
+
+      #endif
 
     }  // cumsum_in
-    GET_NUMBER(sum) += GET_NUMBER(local_cum);
+    sum = sum + local_cum;
   }  // cumsum_out
 
   // compute scale
-  GET_NUMBER(scale) = static_cast<float>(1.0f) / static_cast<float>(GET_NUMBER(sum));
+  //  
+  #if USE_RECIPROCAL == 1
+    scale = sum.reciprocal();
+  #else
+      scale = AccT(1.0) / AccT(sum);
+  #endif
+
+  
+
 
 prod_out:
   for (uint64_t elem = 0; elem < size; elem += kPackets) {
@@ -78,17 +96,24 @@ prod_out:
     RawDataT raw_out = 0;
   norm_in:
     for (int p = 0; p < kPackets; ++p) {
-#pragma HLS UNROLL
       // Offsets
       const int offlow = p * kDataWidth;
       const int offhigh = offlow + kDataWidth - 1;
-      DataT num = {0};
+      ap_uint<kDataWidth> raw_bits = raw_in2.range(offhigh, offlow);
 
-      // Get the number
-      num.range(kDataWidth - 1, 0) = raw_in2.range(offhigh, offlow);
+      DataT num = GET_NUMBER<DataT>(raw_bits);
 
-      GET_NUMBER(num) = explut(GET_NUMBER(num)) * GET_NUMBER(scale);
-      raw_out.range(offhigh, offlow) = num.range(kDataWidth - 1, 0);
+      
+      // Scale
+      num =explut(num);
+      num = num*DataT(scale);
+      //num = exptaylor(num) * scale;
+
+
+    
+      // Store
+      raw_out.range(offhigh, offlow) = GET_RAW(num);
+
     }
     out_stream << raw_out;
   }

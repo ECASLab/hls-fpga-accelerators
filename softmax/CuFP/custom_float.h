@@ -3,6 +3,7 @@
 
 #include <math.h>
 #include <iostream>
+#include <ap_fixed.h>
 #include "array_utils.h"
 #include "arith_utils.h"
 
@@ -35,6 +36,16 @@ union Transfer {
     unsigned long long i;
 };
 
+union TransferFloat {
+    float f;
+    unsigned int i;
+};
+
+union TransferHalf {
+    half h;
+    unsigned short i; // 16 bits
+};
+
 template <int WL, int MS>
 class CustomFloat
 {
@@ -50,7 +61,14 @@ public:
     {}
 
     CustomFloat(double val)
-    {
+    {   
+        if (val == 0.0) {
+            mnts = 0;
+            exp = 0;
+            sign = 0;
+            return;
+        }
+        
     	const ap_int<WL-MS> biasExp((1ull << (WL - MS - 1 - 1)) - 1ull);
 
         Transfer t;
@@ -135,9 +153,53 @@ public:
 
 
     CustomFloat<WL, MS> reciprocal() const {
-        return CustomFloat<WL, MS>(1.0 / this->getDouble());
-    }
+    #pragma HLS inline
 
+        
+
+        static const ap_int<WL-MS> bias = (ap_int<WL-MS>(1) << (WL - MS - 2)) - 1;
+        
+        ap_int<WL-MS> real_exp = ap_int<WL-MS>(this->exp) - bias;
+        
+        ap_int<WL-MS> recip_real_exp = -real_exp;
+
+        ap_uint<MS+1> den = (ap_uint<MS+1>(1) << MS) | this->mnts.range(MS-1, 0);
+
+        static const int DivWidth = 2*MS + 2; 
+        ap_uint<DivWidth> num = (ap_uint<DivWidth>(1) << (2 * MS));
+        ap_uint<DivWidth> den_wide = den; 
+
+        ap_uint<DivWidth> qq = num / den_wide;
+        ap_uint<DivWidth> rem = num % den_wide;
+
+        bool rem_tie = (rem << 1) == den_wide;
+        bool rem_gt = (rem << 1) > den_wide;
+        bool qq_odd = qq.test(0); 
+        
+        if (rem_gt || (rem_tie && qq_odd)) {
+            ++qq;
+        }
+
+        if (!qq.test(MS)) {
+            qq <<= 1;
+            recip_real_exp -= 1;
+        }
+
+        
+        CustomFloat<WL, MS> result;
+        result.sign = this->sign; 
+        result.exp = recip_real_exp + bias; 
+        result.mnts = qq.range(MS - 1, 0); 
+
+        
+        if (result.mnts == 0 && qq.range(MS,0) == 0) {
+             result.sign = 0;
+             result.exp = 0;
+        }
+
+        return result;
+    }
+    
 
     template<int W_other, int M_other>
     CustomFloat<WL, MS> operator/(const CustomFloat<W_other, M_other>& other) const {
@@ -146,7 +208,7 @@ public:
 
 
     CustomFloat<WL, MS> operator/(int i) const {
-        CustomFloat<WL, MS> reciprocal_i(1.0 / static_cast<double>(i));
+        CustomFloat<WL, MS> reciprocal_i(1.0 / static_cast<half>(i));
         return *this * reciprocal_i;
     }
 
@@ -165,7 +227,10 @@ public:
 
 
     double getDouble() const {
-    	ap_uint<WL-MS> biasExp((1ull << (WL - MS - 1 - 1)) - 1ull);
+    	if (isZero()) {
+        return 0.0;
+        }
+        ap_uint<WL-MS> biasExp((1ull << (WL - MS - 1 - 1)) - 1ull);
 
         Transfer t;
         t.i = (sign ? 1ull : 0ull) << 63;
@@ -175,6 +240,39 @@ public:
         return t.d;
     }
 
+
+    
+    half getHalf() const {
+#pragma HLS INLINE off
+
+    if (isZero()) {
+        return (half)0.0;
+    }
+
+    static const ap_int<WL-MS> customBias = (1 << (WL - MS - 2)) - 1;
+    const int halfBias = 15;
+
+    ap_int<WL-MS> unbiased_exp = exp - customBias;
+    ap_uint<5> half_exp = unbiased_exp + halfBias;
+
+    ap_uint<10> half_mnts;
+    if (MS > 10) {
+        half_mnts = mnts >> (MS - 10);
+    } else if (MS < 10) {
+        half_mnts = mnts << (10 - MS);
+    } else {
+        half_mnts = mnts;
+    }
+
+    ap_uint<16> half_bits = (ap_uint<1>(sign), ap_uint<5>(half_exp), ap_uint<10>(half_mnts));
+
+    return *reinterpret_cast<half*>(&half_bits);
+}
+
+    bool isZero() const {
+#pragma HLS inline
+        return (mnts == 0 && exp == 0);
+    }
     void print() const
     {
         printf("The value is %4.8f\n", getDouble());
@@ -195,6 +293,9 @@ template<int WR, int MR, int WX, int MX, int WY, int MY>
 CustomFloat<WR, MR> mul(const CustomFloat<WX, MX> &x, const CustomFloat<WY, MY> &y)
 {
 #pragma HLS inline
+    if (x.isZero() || y.isZero()) {
+        return CustomFloat<WR, MR>(); // Devuelve un CustomFloat inicializado a cero
+    }
 	const ap_int<WX-MX> biasExpX((ap_uint<WX-MX>(1) << (WX - MX - 1 - 1)) - 1);
 	const ap_int<WY-MY> biasExpY((ap_uint<WY-MY>(1) << (WY - MY - 1 - 1)) - 1);
 	const ap_int<WR-MR> biasExpR((ap_uint<WR-MR>(1) << (WR - MR - 1 - 1)) - 1);
@@ -236,6 +337,15 @@ template<int WR, int MR, int WX, int MX, int WY, int MY>
 CustomFloat<WR, MR> sum(const CustomFloat<WX, MX> &x, const CustomFloat<WY, MY> &y)
 {
 #pragma HLS inline
+
+    if (x.isZero()) {
+        CustomFloat<WR,MR> r(y.getDouble()); // Convierte y al formato de resultado
+        return r;
+    }
+    if (y.isZero()) {
+        CustomFloat<WR,MR> r(x.getDouble()); // Convierte x al formato de resultado
+        return r;
+    }
     CustomFloat<WR, MR> r;
 
     const ap_int<WX-MX> biasExpX = (ap_int<WX-MX>(1) << (WX - MX - 1 - 1)) - 1;

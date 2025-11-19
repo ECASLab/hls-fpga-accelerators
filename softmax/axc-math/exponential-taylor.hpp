@@ -8,7 +8,10 @@
 
 #include <ap_fixed.h>
 #include <ap_float.h>
+#include "../CuFP/custom_float.h"
+
 #include <type_traits>
+
 
 namespace axc {
 namespace nonlinear {
@@ -79,22 +82,34 @@ class Exponential<T, O, true> {
    * @return T output (exp(x))
    */
   T operator()(const T x) {
-     
+  #pragma HLS INLINE off
     static_assert(O > 0, "Taylor for exp(x) requires order > 0");
     static const T unit = T{1.f};
-    T sum = unit;
-    T num = unit;
-    T den = unit;
-    T term = unit;
+    //T sum = unit;
+    //T num = unit;
+    //T den = unit;
+    //T term = unit;
 
-    #pragma HLS pipeline
+    half sum = 1.f;
+    half num = 1.f;
+    half den = 1.f;
+
+
+
+
     for (int i = 1; i <= O; ++i) {
-      num *= x;
-      den /= i;
+#pragma HLS INLINE off
+      num *= x.getHalf();
+      //num *= x;
+      //num *= float(x);
+      //den *= T(i).reciprocal();
+      den = den/i;
       sum += (num * den);
+
+
     }
 
-    return sum;
+    return T(sum);
   }
 
 };  // class Exponential false

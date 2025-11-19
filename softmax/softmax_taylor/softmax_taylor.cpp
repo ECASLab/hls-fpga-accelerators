@@ -22,10 +22,10 @@ static void compute_aprox(hls::stream<RawDataT> &in_stream,
   
   using ExpOpTaylor =
       axc::nonlinear::approximate::taylor::Exponential<DataT,
-                                                       korder,is_fp>;
+                                                       korder,IS_FP>;
   ExpOpTaylor exptaylor{};
 
-  DataT sum = {0};
+  AccT sum = {0.0f};
   AccT scale = {0.0f};
 
 // Cumsum
@@ -34,12 +34,13 @@ cumsum_out:
 #pragma HLS PIPELINE
 #pragma HLS LOOP_TRIPCOUNT min = kTotalMaxSize max = kTotalMaxSize avg = \
     kTotalMaxSize
-    DataT local_cum = {0};
+    AccT local_cum = {0.0f};
     DataT local_exps[kPackets] = {0};
     RawDataT raw_in1 = in_stream.read();
 
   compute_exps:
     for (int p = 0; p < kPackets; ++p) {
+#pragma HLS UNROLL
       // offsets
       const int offlow = p * kDataWidth;
       const int offhigh = offlow + kDataWidth - 1;
@@ -49,20 +50,37 @@ cumsum_out:
       DataT num = GET_NUMBER<DataT>(raw_bits);
 
       local_exps[p] = exptaylor(num);
+ 
+
     }  // compute_Exps
 
   // compute cumsum
   cumsum_in:
     for (int p = 0; p < kPackets; ++p) {
+#pragma HLS UNROLL
       // Accumulate exponentials
-      local_cum = local_cum + local_exps[p];
+      #if USE_RECIPROCAL == 1
+            //local_cum = local_cum + toFloat(local_exps[p]); // revisar el toFloat
+            local_cum = local_cum + local_exps[p]; // revisar el toFloat
+
+      #else
+            local_cum = local_cum + toFloat(local_exps[p]);
+            //local_cum = local_cum + local_exps[p]; // revisar el toFloat
+
+      #endif
 
     }  // cumsum_in
     sum = sum + local_cum;
   }  // cumsum_out
 
   // compute scale
-  scale = 1.0 / toFloat(sum);
+  //  
+  #if USE_RECIPROCAL == 1
+    scale = sum.reciprocal();
+  #else
+      scale = AccT(1.0) / AccT(sum);
+  #endif
+
   
 
 
@@ -75,7 +93,6 @@ prod_out:
     RawDataT raw_out = 0;
   norm_in:
     for (int p = 0; p < kPackets; ++p) {
-#pragma HLS UNROLL
       // Offsets
       const int offlow = p * kDataWidth;
       const int offhigh = offlow + kDataWidth - 1;
@@ -83,10 +100,12 @@ prod_out:
 
       DataT num = GET_NUMBER<DataT>(raw_bits);
 
-
+      
       // Scale
-      num =
-          exptaylor(num) * DataT(scale);
+      num =exptaylor(num);
+      num = num*DataT(scale);
+      //num = exptaylor(num) * scale;
+
 
     
       // Store

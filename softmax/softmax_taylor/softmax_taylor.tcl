@@ -6,6 +6,7 @@
 catch {::common::set_param -quiet hls.xocc.mode csynth};
 
 
+
 open_project -reset softmax_taylor
 set_top softmax_taylor
 
@@ -24,9 +25,11 @@ config_interface -m_axi_addr64
 config_interface -m_axi_auto_max_ports=0
 
 config_export -format xo -ipname softmax_taylor
+
 #csim_design
 csynth_design
-#cosim_design
+cosim_design
+
 close_project
 puts "HLS completed successfully"
 exit

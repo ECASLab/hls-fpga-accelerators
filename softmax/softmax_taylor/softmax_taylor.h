@@ -10,76 +10,90 @@
 #include "../CuFP/custom_float.h"
 
 
-
-
-#define USE_FIXED32
-
-#ifdef USE_FIXED32
-static constexpr int kDataWidth = 8;
-static constexpr int kFxPDataInt = 16;
-#elif defined(USE_FIXED64)
-static constexpr int kDataWidth = 64;
-static constexpr int kFxPDataInt = 32;
-#elif defined(USE_FIXED24)
-static constexpr int kDataWidth = 24;
-static constexpr int kFxPDataInt = 8;
-#elif defined(USE_FIXED20)
-static constexpr int kDataWidth = 20;
-static constexpr int kFxPDataInt = 10;
-#elif defined(USE_FIXED16)
-static constexpr int kDataWidth = 16;
-static constexpr int kFxPDataInt = 5;
-#elif defined(USE_FIXED12)
-static constexpr int kDataWidth = 12;
-static constexpr int kFxPDataInt = 6;
-#elif defined(USE_FIXED8)
-static constexpr int kDataWidth = 8;
-static constexpr int kFxPDataInt = 3;
-#else
-static constexpr int kDataWidth = 32;
-static constexpr int kFxPDataInt = 16;
+#ifndef USE_RECIPROCAL
+#define USE_RECIPROCAL 0  //is floating point?
 #endif
 
 
-constexpr bool is_fp = true; //is floating point?
-constexpr int WS = 8;
-constexpr int MS = 3;
+#ifndef IS_FP
+#define IS_FP 1  //is floating point?
+#endif
 
 
-using floating_point = CuFl::CustomFloat<WS,MS>;
+#ifndef WS
+#define WS 8   
+#endif
+#ifndef MS
+#define MS 3
+#endif
+
+#ifndef KDATAWIDTH_FIXED
+#define KDATAWIDTH_FIXED 16 
+#endif
+#ifndef KFXPDATAINT
+#define KFXPDATAINT 3
+#endif
+
+#ifndef KORDER
+#define KORDER 3 // Orden de la serie de Taylor
+#endif
+
+
+#ifndef KBUSWIDTH
+#define KBUSWIDTH 512 // Ancho del bus
+#endif
+#ifndef KCOLS
+#define KCOLS 32
+#endif
+#ifndef KROWS
+#define KROWS 32
+#endif
+
+
+
+#if IS_FP == 1
+    static constexpr int kDataWidth = WS;
+    static constexpr int kFxPDataInt = 0; 
+#else
+    static constexpr int kDataWidth = KDATAWIDTH_FIXED;
+    static constexpr int kFxPDataInt = KFXPDATAINT;
+#endif
+
+
+using floating_point = CuFl::CustomFloat<WS, MS>;
 using fixed = ap_fixed<kDataWidth, kFxPDataInt>;
-using DataT = typename std::conditional<is_fp,floating_point,fixed>::type;
+using DataT = typename std::conditional<IS_FP, floating_point, fixed>::type;
 
-static constexpr int kBusWidth = 512;
-constexpr int korder = 3;
+static constexpr int kBusWidth = KBUSWIDTH;
+constexpr int korder = KORDER;
 
-
-static constexpr int kCols = 32;
-static constexpr int kRows = 32;
-
+static constexpr int kCols = KCOLS;
+static constexpr int kRows = KROWS;
 
 using RawDataT = ap_uint<kBusWidth>;
 using StreamT = hls::stream<RawDataT>;
 
-
-
 static constexpr int kPackets = kBusWidth / kDataWidth;
 static constexpr uint64_t kTotalMaxSize = kCols * kRows / kPackets;
 
-
-using AccT = typename std::conditional<is_fp,double,ap_fixed<32, 16>>::type;
-
-
-
-// #define GET_NUMBER(n) (n)
-// #define GET_RAW(n) (n).V
+//using AccT = typename std::conditional<IS_FP, CuFl::CustomFloat<16,10>, ap_fixed<32, 16>>::type;
+//using AccT = typename std::conditional<IS_FP, half, ap_fixed<32, 16>>::type;
 
 
-inline float toFloat(const fixed& val) {
-    return val.to_float();
+#if USE_RECIPROCAL == 1
+    using AccT = typename std::conditional<IS_FP, CuFl::CustomFloat<16,10>, ap_fixed<32, 16>>::type;
+#else
+    using AccT = typename std::conditional<IS_FP, half, ap_fixed<32, 16>>::type;
+#endif
+
+
+
+inline half toFloat(const fixed& val) {
+    
+    return half(val);
 }
-inline float toFloat(const floating_point& val) {
-    return val.getDouble();
+inline half toFloat(const floating_point& val) {
+    return val.getHalf();
 }
 
 inline ap_uint<kDataWidth> GET_RAW(const fixed& val) {

@@ -1,5 +1,5 @@
-#ifndef __SOFTMAX_H__
-#define __SOFTMAX_H__
+#ifndef __SOFTMAX_LUT_H__
+#define __SOFTMAX_LUT_H__
 
 
 #include <stdint.h>
@@ -9,61 +9,125 @@
 
 #include <hls_stream.h>
 #include "axc-math/exponential-lut.hpp"
+#include <type_traits>
 
-static constexpr int kBusWidth = 640;
+#include "../CuFP/custom_float.h"
 
-static constexpr int kCols = 31;
-static constexpr int kRows = 32;
 
-using RawDataT = ap_uint<kBusWidth>;
-using StreamT = hls::stream<RawDataT>;
+#ifndef USE_RECIPROCAL
+#define USE_RECIPROCAL 0  //is floating point?
+#endif
+
+
+#ifndef IS_FP
+#define IS_FP 1  //is floating point?
+#endif
+
+
+#ifndef WS
+#define WS 4    
+#endif
+#ifndef MS
+#define MS 2     
+#endif
+
+#ifndef KDATAWIDTH_FIXED
+#define KDATAWIDTH_FIXED 16 
+#endif
+#ifndef KFXPDATAINT
+#define KFXPDATAINT 3
+#endif
+
+
+#ifndef KBUSWIDTH
+#define KBUSWIDTH 512 // Ancho del bus
+#endif
+#ifndef KCOLS
+#define KCOLS 32
+#endif
+#ifndef KROWS
+#define KROWS 32
+#endif
+
+
+
+#if IS_FP == 1
+    static constexpr int kDataWidth = WS;
+    static constexpr int kFxPDataInt = 0; 
+#else
+    static constexpr int kDataWidth = KDATAWIDTH_FIXED;
+    static constexpr int kFxPDataInt = KFXPDATAINT;
+#endif
+
+
+using floating_point = CuFl::CustomFloat<WS, MS>;
+using fixed = ap_fixed<kDataWidth, kFxPDataInt>;
+using DataT = typename std::conditional<IS_FP, floating_point, fixed>::type;
+
+static constexpr int kBusWidth = KBUSWIDTH;
+
 static constexpr int START_APROX = -8;
 static constexpr int END_APROX = 8;
 
-#define USE_FIXED20
+static constexpr int kCols = KCOLS;
+static constexpr int kRows = KROWS;
 
-#ifdef USE_FIXED32
-static constexpr int kDataWidth = 32;
-static constexpr int kFxPDataInt = 16;
-#elif defined(USE_FIXED64)
-static constexpr int kDataWidth = 64;
-static constexpr int kFxPDataInt = 32;
-#elif defined(USE_FIXED24)
-static constexpr int kDataWidth = 24;
-static constexpr int kFxPDataInt = 8;
-#elif defined(USE_FIXED20)
-static constexpr int kDataWidth = 20;
-static constexpr int kFxPDataInt = 10;
-#elif defined(USE_FIXED16)
-static constexpr int kDataWidth = 16;
-static constexpr int kFxPDataInt = 6;
-#elif defined(USE_FIXED12)
-static constexpr int kDataWidth = 12;
-static constexpr int kFxPDataInt = 5;
-#elif defined(USE_FIXED8)
-static constexpr int kDataWidth = 8;
-static constexpr int kFxPDataInt = 3;
-#else
-static constexpr int kDataWidth = 32;
-static constexpr int kFxPDataInt = 16;
-#endif
-
-using DataT = ap_fixed<kDataWidth, kFxPDataInt>;
+using RawDataT = ap_uint<kBusWidth>;
+using StreamT = hls::stream<RawDataT>;
 
 static constexpr int kPackets = kBusWidth / kDataWidth;
 static constexpr uint64_t kTotalMaxSize = kCols * kRows / kPackets;
 
-using RawDataT = ap_uint<kBusWidth>;
-using StreamT = hls::stream<RawDataT>;
+//using AccT = typename std::conditional<IS_FP, CuFl::CustomFloat<16,10>, ap_fixed<32, 16>>::type;
+//using AccT = typename std::conditional<IS_FP, half, ap_fixed<32, 16>>::type;
+
+
+#if USE_RECIPROCAL == 1
+    using AccT = typename std::conditional<IS_FP, CuFl::CustomFloat<16,10>, ap_fixed<32, 16>>::type;
+#else
+    using AccT = typename std::conditional<IS_FP, half, ap_fixed<32, 16>>::type;
+#endif
 
 
 
+inline half toFloat(const fixed& val) {
+    
+    return half(val);
+}
+inline half toFloat(const floating_point& val) {
+    return val.getHalf();
+}
 
-//  using AccT = DataT;
- using AccT = ap_fixed<32, 16>;
+inline ap_uint<kDataWidth> GET_RAW(const fixed& val) {
+    return val.range(kDataWidth - 1, 0);
+}
 
- #define GET_NUMBER(n) (n)
- #define GET_RAW(n) (n).V
+
+inline ap_uint<kDataWidth> GET_RAW(const floating_point& val) {
+    return (ap_uint<1>(val.sign), ap_uint<WS-MS-1>(val.exp), ap_uint<MS>(val.mnts));
+}
+
+
+
+template <typename T>
+T GET_NUMBER(const ap_uint<kDataWidth>& raw); 
+
+template <> 
+inline fixed GET_NUMBER<fixed>(const ap_uint<kDataWidth>& raw) {
+    fixed result;
+    result.V = raw.to_uint64();
+    return result;
+}
+
+template <> 
+inline floating_point GET_NUMBER<floating_point>(const ap_uint<kDataWidth>& raw) {
+    floating_point result;
+    result.sign  = raw[kDataWidth - 1];
+    result.exp   = raw.range(kDataWidth - 2, MS);
+    result.mnts  = raw.range(MS - 1, 0);
+    return result;
+}
+
 
 
 extern "C" {

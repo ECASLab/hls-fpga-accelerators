@@ -15,7 +15,7 @@ int main(int, char **) {
     
     // --- Imprimir Información ---
     std::cout << "=================================================" << std::endl;
-    if (is_fp) {
+    if (IS_FP) {
         std::cout << "Testing Softmax with CustomFloat<" << WS << "," << MS << ">" << std::endl;
     } else {
         std::cout << "Testing Softmax with ap_fixed<" << kDataWidth << "," << kFxPDataInt << ">" << std::endl;
@@ -24,16 +24,16 @@ int main(int, char **) {
     std::cout << "=================================================" << std::endl;
 
     // --- 1. Inicialización y Empaquetado de Datos ---
-    DataT current_val = DataT(0.0f);
-    DataT increment = DataT(0.0);
+    DataT current_val = 1.f;
+    DataT increment = 0.00f;
     
     std::cout << "Input Data (A):" << std::endl;
     for (int i = 0; i < size_a; ++i) {
         RawDataT packet = 0;
         for (int p = 0; p < kPackets; ++p) {
-            //std::cout << current_val << " " << increment << " " << std::endl;
+            std::cout << current_val << " " << increment << " " << std::endl;
             
-            // ✅ USA TU FUNCIÓN SOBRECARGADA 'GET_RAW'
+            
             ap_uint<kDataWidth> raw_bits = GET_RAW(current_val);
             packet.range((p + 1) * kDataWidth - 1, p * kDataWidth) = raw_bits;
             
@@ -48,7 +48,7 @@ int main(int, char **) {
 
     // --- 3. Desempaquetado y Verificación ---
     std::cout << "\nOutput Data (C):" << std::endl;
-    float total_sum = 0.0f;
+    double total_sum = 0.0;
     for (int i = 0; i < size_a; ++i) {
         RawDataT packet = c[i];
         for (int p = 0; p < kPackets; ++p) {
@@ -57,7 +57,7 @@ int main(int, char **) {
             
             DataT result_val = GET_NUMBER<DataT>(raw_bits);
             
-            //std::cout << result_val << " ";
+            std::cout << result_val << " ";
 
             total_sum += toFloat(result_val);
         }
