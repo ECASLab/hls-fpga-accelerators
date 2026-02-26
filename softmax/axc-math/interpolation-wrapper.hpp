@@ -32,15 +32,16 @@ namespace helpers {
  class LinearInterpolation<T, LUT, true> {
   public:
    T operator()(const T x) {
-     const T kStep = static_cast<T>(LUT::Step);
-     const T kInvStep = 1.0f / kStep;
-     const T kBegin = static_cast<T>(LUT::Minimum);
+     const half kStep = LUT::Step;
+     const half kInvStep = half(1.0f) / kStep;
+     const half kBegin = LUT::Minimum;
      constexpr int kPoints = LUT::Points;
+
  
      T lut[LUT::Points];
      LUT generator{lut};
  
-     int16_t i_lower = static_cast<int16_t>((x - kBegin) * kInvStep);
+     int16_t i_lower = static_cast<int16_t>((x.getHalf() - kBegin) * kInvStep);
  
      /* Check bounds */
      i_lower = i_lower <= 0 ? 0 : i_lower;
@@ -49,14 +50,14 @@ namespace helpers {
      int16_t i_upper = i_lower + 1;
  
      // La fórmula de interpolación lineal estándar usando tipos flotantes
-     const T x_lower = kBegin + (i_lower * kStep);
-     const T y_lower = lut[i_lower];
-     const T y_upper = lut[i_upper];
+     const half x_lower = kBegin + (i_lower * kStep);
+     const half y_lower = lut[i_lower].getHalf();
+     const half y_upper = lut[i_upper].getHalf();
  
      
-     T res = y_lower + (x - x_lower) * (y_upper - y_lower) * kInvStep;
+     half res = y_lower + (x.getHalf() - x_lower) * (y_upper - y_lower) * kInvStep;
  
-     return res;
+     return T(res);
    }
  };
 

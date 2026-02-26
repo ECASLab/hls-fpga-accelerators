@@ -20,12 +20,11 @@ mem_reps:
 static void compute(hls::stream<RawDataT> &in_stream,
                           hls::stream<RawDataT> &out_stream, uint64_t size) {
 #pragma HLS INLINE off
-  constexpr int kNumPoints = 4;
 
   using Start = std::ratio<START_APROX>;
   using End = std::ratio<END_APROX>;
   using ExpOpLut =
-      axc::nonlinear::approximate::lut::Exponential<DataT, Start, End, kNumPoints, IS_FP>;
+      axc::nonlinear::approximate::lut::Exponential<DataT, Start, End, KNUMPOINTS, IS_FP>;
       ExpOpLut explut{};
 
   AccT sum = {0};
@@ -53,7 +52,8 @@ cumsum_out:
       DataT num = GET_NUMBER<DataT>(raw_bits);
 
       local_exps[p] = explut(num);
- 
+      //local_exps[p] = hls::exp(num);
+      
 
     }  // compute_Exps
 
@@ -62,7 +62,7 @@ cumsum_out:
     for (int p = 0; p < kPackets; ++p) {
 #pragma HLS UNROLL
       // Accumulate exponentials
-      #if USE_RECIPROCAL == 1
+      #if IS_FP == 0
             //local_cum = local_cum + toFloat(local_exps[p]); // revisar el toFloat
             local_cum = local_cum + local_exps[p]; // revisar el toFloat
 
@@ -106,8 +106,8 @@ prod_out:
       
       // Scale
       num =explut(num);
+      //num = hls::exp(num);
       num = num*DataT(scale);
-      //num = exptaylor(num) * scale;
 
 
     
@@ -135,15 +135,15 @@ mem_wr:
 extern "C" {
 
 void softmax_lut(RawDataT *in1, RawDataT *out, uint64_t size) {
-#pragma HLS INTERFACE m_axi offset = slave port = in1 bundle = gmem0 depth = 32
-#pragma HLS INTERFACE m_axi offset = slave port = out bundle = gmem1 depth = 32
+#pragma HLS INTERFACE m_axi offset = slave port = in1 bundle = gmem0 depth = 16
+#pragma HLS INTERFACE m_axi offset = slave port = out bundle = gmem1 depth = 16
 #pragma HLS INTERFACE s_axilite register port = size
 #pragma HLS INTERFACE s_axilite register port = return
 
   static StreamT stream_a;
   static StreamT stream_c;
-#pragma HLS stream variable = stream_a depth = 32
-#pragma HLS stream variable = stream_c depth = 32
+#pragma HLS stream variable = stream_a depth = 16
+#pragma HLS stream variable = stream_c depth = 16
 
 #pragma HLS dataflow
   load_input(in1, stream_a, size);

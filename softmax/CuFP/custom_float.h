@@ -268,6 +268,9 @@ public:
 
     return *reinterpret_cast<half*>(&half_bits);
 }
+    explicit operator int16_t() const {
+        return static_cast<int16_t>(this->getHalf()); 
+    }
 
     bool isZero() const {
 #pragma HLS inline

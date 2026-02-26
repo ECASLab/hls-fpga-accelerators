@@ -4,8 +4,7 @@
  * 
  */
 
- #include "softmax_taylor.h"
-
+#include "softmax_lut.h"
 #include <iostream>
 #include <vector>
 #include <cmath>
@@ -95,7 +94,7 @@ int main(int, char **) {
         }
 
         // 2. Ejecutar DUT (HLS Softmax)
-        softmax_taylor(a, c, vector_length);
+        softmax_lut(a, c, vector_length);
 
         // 3. Ejecutar Golden Reference (Software Softmax)
         softmax_golden(input_float, output_golden);

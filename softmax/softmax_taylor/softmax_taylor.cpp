@@ -59,7 +59,7 @@ cumsum_out:
     for (int p = 0; p < kPackets; ++p) {
 #pragma HLS UNROLL
       // Accumulate exponentials
-      #if USE_RECIPROCAL == 1
+      #if IS_FP == 0
             //local_cum = local_cum + toFloat(local_exps[p]); // revisar el toFloat
             local_cum = local_cum + local_exps[p]; // revisar el toFloat
 

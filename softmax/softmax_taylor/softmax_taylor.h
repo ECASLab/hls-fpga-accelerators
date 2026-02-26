@@ -16,37 +16,37 @@
 
 
 #ifndef IS_FP
-#define IS_FP 1  //is floating point?
+#define IS_FP 0  //is floating point?
 #endif
 
 
 #ifndef WS
-#define WS 8   
+#define WS 16  
 #endif
 #ifndef MS
-#define MS 3
+#define MS 10
 #endif
 
 #ifndef KDATAWIDTH_FIXED
-#define KDATAWIDTH_FIXED 16 
+#define KDATAWIDTH_FIXED 18
 #endif
 #ifndef KFXPDATAINT
-#define KFXPDATAINT 3
+#define KFXPDATAINT 7
 #endif
 
 #ifndef KORDER
-#define KORDER 3 // Orden de la serie de Taylor
+#define KORDER 2 // Orden de la serie de Taylor
 #endif
 
 
 #ifndef KBUSWIDTH
-#define KBUSWIDTH 512 // Ancho del bus
+#define KBUSWIDTH 320 // Ancho del bus
 #endif
 #ifndef KCOLS
-#define KCOLS 32
+#define KCOLS 50
 #endif
 #ifndef KROWS
-#define KROWS 32
+#define KROWS 20
 #endif
 
 
@@ -64,7 +64,7 @@ using floating_point = CuFl::CustomFloat<WS, MS>;
 using fixed = ap_fixed<kDataWidth, kFxPDataInt>;
 using DataT = typename std::conditional<IS_FP, floating_point, fixed>::type;
 
-static constexpr int kBusWidth = KBUSWIDTH;
+static constexpr int kBusWidth = 10 * KDATAWIDTH_FIXED;
 constexpr int korder = KORDER;
 
 static constexpr int kCols = KCOLS;
